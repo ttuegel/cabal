@@ -29,17 +29,19 @@ import Distribution.Client.Setup
          , InitFlags(initVerbosity), initCommand
          , SDistFlags(..), SDistExFlags(..), sdistCommand
          , reportCommand
+         , testCommand
          , unpackCommand, UnpackFlags(..) )
 import Distribution.Simple.Setup
-         ( BuildFlags(..), buildCommand
+         ( BuildFlags(..), buildCommand, emptyBuildFlags
          , HaddockFlags(..), haddockCommand
          , HscolourFlags(..), hscolourCommand
          , CopyFlags(..), copyCommand
          , RegisterFlags(..), registerCommand
          , CleanFlags(..), cleanCommand
-         , TestFlags(..), testCommand
+         , TestFlags(..)
          , BenchmarkFlags(..), benchmarkCommand
-         , Flag(..), fromFlag, fromFlagOrDefault, flagToMaybe )
+         , Flag(..), fromFlag, fromFlagOrDefault, flagToMaybe, toFlag )
+import qualified Distribution.Simple.Setup as Cabal ( testCommand )
 
 import Distribution.Client.SetupWrapper
          ( setupWrapper, SetupScriptOptions(..), defaultSetupScriptOptions )
@@ -150,8 +152,7 @@ mainWorker args = topHandler $
                      hscolourVerbosity hscolourDistPref
       ,wrapperAction registerCommand
                      regVerbosity      regDistPref
-      ,wrapperAction testCommand
-                     testVerbosity     testDistPref
+      ,testCommand            `commandAddAction` testAction
       ,wrapperAction benchmarkCommand
                      benchmarkVerbosity     benchmarkDistPref
       ,upgradeCommand         `commandAddAction` upgradeAction
@@ -213,6 +214,37 @@ installAction (configFlags, configExFlags, installFlags, haddockFlags)
           (configPackageDB' configFlags') (globalRepos globalFlags')
           comp conf globalFlags' configFlags' configExFlags' installFlags' haddockFlags
           targets
+
+testAction :: (ConfigFlags, ConfigExFlags, TestFlags)
+           -> [String] -> GlobalFlags -> IO ()
+testAction (configFlags, configExFlags, testFlags) extraArgs globalFlags = do
+    let verbosity = fromFlagOrDefault normal (configVerbosity configFlags)
+    config <- loadConfig verbosity (globalConfigFile globalFlags)
+                                   (configUserInstall configFlags)
+    let configFlags'   = (savedConfigureFlags   config `mappend` configFlags)
+            { configTests = toFlag True }
+        configExFlags' = defaultConfigExFlags `mappend`
+                         savedConfigureExFlags config `mappend` configExFlags
+        globalFlags'   = savedGlobalFlags      config `mappend` globalFlags
+        buildFlags     = emptyBuildFlags
+            { buildDistPref = configDistPref configFlags'
+            , buildVerbosity = toFlag verbosity
+            }
+        setupScriptOptions = defaultSetupScriptOptions
+            { useDistPref = fromFlagOrDefault
+                                (useDistPref defaultSetupScriptOptions)
+                                (configDistPref configFlags')
+            }
+        setup c f = setupWrapper verbosity setupScriptOptions Nothing
+                    c (const f) extraArgs
+
+    (comp, conf) <- configCompilerAux configFlags'
+    configure verbosity
+              (configPackageDB' configFlags') (globalRepos globalFlags')
+              comp conf configFlags' configExFlags' extraArgs
+    
+    setup (buildCommand defaultProgramConfiguration) buildFlags
+    setup Cabal.testCommand testFlags
 
 listAction :: ListFlags -> [String] -> GlobalFlags -> IO ()
 listAction listFlags extraArgs globalFlags = do
