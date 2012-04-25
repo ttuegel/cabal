@@ -12,6 +12,7 @@
 -----------------------------------------------------------------------------
 module Distribution.Client.Setup
     ( globalCommand, GlobalFlags(..), globalRepos
+    , benchmarkCommand
     , configureCommand, ConfigFlags(..), filterConfigureFlags
     , configureExCommand, ConfigExFlags(..), defaultConfigExFlags
                         , configureExOptions
@@ -50,9 +51,11 @@ import Distribution.Simple.Program
          ( defaultProgramConfiguration )
 import Distribution.Simple.Command hiding (boolOpt)
 import qualified Distribution.Simple.Setup as Cabal
-         ( configureCommand, sdistCommand, haddockCommand, testCommand )
+         ( benchmarkCommand, configureCommand, sdistCommand, haddockCommand
+         , testCommand )
 import Distribution.Simple.Setup
-         ( ConfigFlags(..), SDistFlags(..), HaddockFlags(..), TestFlags(..) )
+         ( BenchmarkFlags(..), ConfigFlags(..), SDistFlags(..), HaddockFlags(..)
+         , TestFlags(..) )
 import Distribution.Simple.Setup
          ( Flag(..), toFlag, fromFlag, flagToMaybe, flagToList
          , optionVerbosity, boolOpt, trueArg, falseArg )
@@ -1121,6 +1124,24 @@ testCommand = Cabal.testCommand {
     ++ liftOptions get3 set3 (commandOptions Cabal.testCommand showOrParseArgs)
   }
   where
+    get1 (a,_,_) = a; set1 a (_,b,c) = (a,b,c)
+    get2 (_,b,_) = b; set2 b (a,_,c) = (a,b,c)
+    get3 (_,_,c) = c; set3 c (a,b,_) = (a,b,c)
+
+-- ------------------------------------------------------------
+-- * Benchmark flags
+-- ------------------------------------------------------------
+
+benchmarkCommand :: CommandUI (ConfigFlags, ConfigExFlags, BenchmarkFlags)
+benchmarkCommand = Cabal.benchmarkCommand {
+  commandDefaultFlags = (mempty, mempty, mempty),
+  commandOptions      = \showOrParseArgs ->
+       liftOptions get1 set1 (configureOptions   showOrParseArgs)
+    ++ liftOptions get2 set2 (configureExOptions showOrParseArgs)
+    ++ liftOptions get3 set3 (options            showOrParseArgs)
+  }
+  where
+    options = commandOptions Cabal.benchmarkCommand
     get1 (a,_,_) = a; set1 a (_,b,c) = (a,b,c)
     get2 (_,b,_) = b; set2 b (a,_,c) = (a,b,c)
     get3 (_,_,c) = c; set3 c (a,b,_) = (a,b,c)

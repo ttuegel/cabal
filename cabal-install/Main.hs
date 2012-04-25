@@ -15,6 +15,7 @@ module Main (main) where
 
 import Distribution.Client.Setup
          ( GlobalFlags(..), globalCommand, globalRepos
+         , benchmarkCommand
          , ConfigFlags(..)
          , ConfigExFlags(..), defaultConfigExFlags, configureExCommand
          , InstallFlags(..), defaultInstallFlags
@@ -39,9 +40,10 @@ import Distribution.Simple.Setup
          , RegisterFlags(..), registerCommand
          , CleanFlags(..), cleanCommand
          , TestFlags(..)
-         , BenchmarkFlags(..), benchmarkCommand
+         , BenchmarkFlags(..)
          , Flag(..), fromFlag, fromFlagOrDefault, flagToMaybe, toFlag )
-import qualified Distribution.Simple.Setup as Cabal ( testCommand )
+import qualified Distribution.Simple.Setup as Cabal
+         ( benchmarkCommand, testCommand )
 
 import Distribution.Client.SetupWrapper
          ( setupWrapper, SetupScriptOptions(..), defaultSetupScriptOptions )
@@ -153,8 +155,7 @@ mainWorker args = topHandler $
       ,wrapperAction registerCommand
                      regVerbosity      regDistPref
       ,testCommand            `commandAddAction` testAction
-      ,wrapperAction benchmarkCommand
-                     benchmarkVerbosity     benchmarkDistPref
+      ,benchmarkCommand       `commandAddAction` benchmarkAction
       ,upgradeCommand         `commandAddAction` upgradeAction
       ]
 
@@ -245,6 +246,38 @@ testAction (configFlags, configExFlags, testFlags) extraArgs globalFlags = do
     
     setup (buildCommand defaultProgramConfiguration) buildFlags
     setup Cabal.testCommand testFlags
+
+benchmarkAction :: (ConfigFlags, ConfigExFlags, BenchmarkFlags)
+           -> [String] -> GlobalFlags -> IO ()
+benchmarkAction (configFlags, configExFlags, benchFlags) extraArgs globalFlags
+  = do
+    let verbosity = fromFlagOrDefault normal (configVerbosity configFlags)
+    config <- loadConfig verbosity (globalConfigFile globalFlags)
+                                   (configUserInstall configFlags)
+    let configFlags'   = (savedConfigureFlags   config `mappend` configFlags)
+            { configBenchmarks = toFlag True }
+        configExFlags' = defaultConfigExFlags `mappend`
+                         savedConfigureExFlags config `mappend` configExFlags
+        globalFlags'   = savedGlobalFlags      config `mappend` globalFlags
+        buildFlags     = emptyBuildFlags
+            { buildDistPref = configDistPref configFlags'
+            , buildVerbosity = toFlag verbosity
+            }
+        setupScriptOptions = defaultSetupScriptOptions
+            { useDistPref = fromFlagOrDefault
+                                (useDistPref defaultSetupScriptOptions)
+                                (configDistPref configFlags')
+            }
+        setup c f = setupWrapper verbosity setupScriptOptions Nothing
+                    c (const f) extraArgs
+
+    (comp, conf) <- configCompilerAux configFlags'
+    configure verbosity
+              (configPackageDB' configFlags') (globalRepos globalFlags')
+              comp conf configFlags' configExFlags' extraArgs
+    
+    setup (buildCommand defaultProgramConfiguration) buildFlags
+    setup Cabal.benchmarkCommand benchFlags
 
 listAction :: ListFlags -> [String] -> GlobalFlags -> IO ()
 listAction listFlags extraArgs globalFlags = do
