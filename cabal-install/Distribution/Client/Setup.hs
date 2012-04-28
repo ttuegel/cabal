@@ -24,7 +24,6 @@ module Distribution.Client.Setup
     , checkCommand
     , uploadCommand, UploadFlags(..)
     , reportCommand, ReportFlags(..)
-    , testCommand
     , unpackCommand, UnpackFlags(..)
     , initCommand, IT.InitFlags(..)
     , sdistCommand, SDistFlags(..), SDistExFlags(..), ArchiveFormat(..)
@@ -50,9 +49,9 @@ import Distribution.Simple.Program
          ( defaultProgramConfiguration )
 import Distribution.Simple.Command hiding (boolOpt)
 import qualified Distribution.Simple.Setup as Cabal
-         ( configureCommand, sdistCommand, haddockCommand, testCommand )
+         ( configureCommand, sdistCommand, haddockCommand )
 import Distribution.Simple.Setup
-         ( ConfigFlags(..), SDistFlags(..), HaddockFlags(..), TestFlags(..) )
+         ( ConfigFlags(..), SDistFlags(..), HaddockFlags(..) )
 import Distribution.Simple.Setup
          ( Flag(..), toFlag, fromFlag, flagToMaybe, flagToList
          , optionVerbosity, boolOpt, trueArg, falseArg )
@@ -1107,23 +1106,6 @@ instance Monoid SDistExFlags where
   }
     where
       combine field = field a `mappend` field b
-
--- ------------------------------------------------------------
--- * Test flags
--- ------------------------------------------------------------
-
-testCommand :: CommandUI (ConfigFlags, ConfigExFlags, TestFlags)
-testCommand = Cabal.testCommand {
-  commandDefaultFlags = (mempty, mempty, mempty),
-  commandOptions      = \showOrParseArgs ->
-       liftOptions get1 set1 (configureOptions                 showOrParseArgs)
-    ++ liftOptions get2 set2 (configureExOptions               showOrParseArgs)
-    ++ liftOptions get3 set3 (commandOptions Cabal.testCommand showOrParseArgs)
-  }
-  where
-    get1 (a,_,_) = a; set1 a (_,b,c) = (a,b,c)
-    get2 (_,b,_) = b; set2 b (a,_,c) = (a,b,c)
-    get3 (_,_,c) = c; set3 c (a,b,_) = (a,b,c)
 
 -- ------------------------------------------------------------
 -- * GetOpt Utils
