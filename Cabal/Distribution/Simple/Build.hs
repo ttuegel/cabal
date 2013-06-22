@@ -63,8 +63,7 @@ import qualified Distribution.Simple.Build.Macros      as Build.Macros
 import qualified Distribution.Simple.Build.PathsModule as Build.PathsModule
 
 import Distribution.Package
-         ( Package(..), PackageName(..), PackageIdentifier(..)
-         , Dependency(..), thisPackageVersion )
+         ( Package(..), PackageName(..), Dependency(..) )
 import Distribution.Simple.Compiler
          ( CompilerFlavor(..), compilerFlavor, PackageDB(..) )
 import Distribution.PackageDescription
@@ -88,14 +87,14 @@ import Distribution.Simple.LocalBuildInfo
          , withComponentsInBuildOrder, componentsInBuildOrder
          , ComponentName(..), showComponentName
          , ComponentDisabledReason(..), componentDisabledReason
-         , inplacePackageId, LibraryName(..) )
+         , inplacePackageId )
 import Distribution.Simple.Program.Types
 import Distribution.Simple.Program.Db
 import Distribution.Simple.BuildPaths
          ( autogenModulesDir, autogenModuleName, cppHeaderName, exeExtension )
 import Distribution.Simple.Register
          ( registerPackage, inplaceInstalledPackageInfo )
-import Distribution.Simple.Test ( stubFilePath, stubName )
+import Distribution.Simple.Test ( wrapperFilePath )
 import Distribution.Simple.Utils
          ( createDirectoryIfMissingVerbose, rewriteFile
          , die, info, warn, setupMessage )
@@ -209,57 +208,25 @@ buildComponent verbosity pkg_descr lbi suffixes
                clbi -- This ComponentLocalBuildInfo corresponds to a detailed
                     -- test suite and not a real component. It should not
                     -- be used, except to construct the CLBIs for the
-                    -- library and stub executable that will actually be
-                    -- built.
-               distPref = do
-    pwd <- getCurrentDirectory
+                    -- wrapper that will actually be built.
+               _ = do
     let bi  = testBuildInfo test
-        lib = Library {
-                exposedModules = [ m ],
-                libExposed     = True,
-                libBuildInfo   = bi
-              }
-        libClbi = LibComponentLocalBuildInfo
-                    { componentPackageDeps = componentPackageDeps clbi
-                    , componentLibraries = [LibraryName (testName test)]
-                    }
-        pkg = pkg_descr {
-                package      = (package pkg_descr) {
-                                 pkgName = PackageName (testName test)
-                               }
-              , buildDepends = targetBuildDepends $ testBuildInfo test
-              , executables  = []
-              , testSuites   = []
-              , library      = Just lib
-              }
-        ipi = (inplaceInstalledPackageInfo pwd distPref pkg lib lbi libClbi) {
-                IPI.installedPackageId = inplacePackageId $ packageId ipi
-              }
-        testDir = buildDir lbi </> stubName test
-              </> stubName test ++ "-tmp"
-        testLibDep = thisPackageVersion $ package pkg
+        testDir = buildDir lbi </> testName test </> testName test ++ "-tmp"
         exe = Executable {
-                exeName    = stubName test,
-                modulePath = stubFilePath test,
-                buildInfo  = (testBuildInfo test) {
-                               hsSourceDirs       = [ testDir ],
-                               targetBuildDepends = testLibDep
-                                 : (targetBuildDepends $ testBuildInfo test)
+                exeName    = testName test,
+                modulePath = wrapperFilePath test,
+                buildInfo  = bi {
+                               hsSourceDirs = testDir : hsSourceDirs bi,
+                               otherModules = m : otherModules bi
                              }
               }
-        -- | The stub executable needs a new 'ComponentLocalBuildInfo'
-        -- that exposes the relevant test suite library.
+        -- | The wrapper executable needs a new 'ComponentLocalBuildInfo'
+        -- with the correct constructor.
         exeClbi = ExeComponentLocalBuildInfo {
-                    componentPackageDeps =
-                        (IPI.installedPackageId ipi, packageId ipi)
-                      : (filter (\(_, x) -> let PackageName name = pkgName x
-                                            in name == "Cabal" || name == "base")
-                                (componentPackageDeps clbi))
+                    componentPackageDeps = componentPackageDeps clbi
                   }
     preprocessComponent pkg_descr comp lbi False verbosity suffixes
     info verbosity $ "Building test suite " ++ testName test ++ "..."
-    buildLib verbosity pkg lbi lib libClbi
-    registerPackage verbosity ipi pkg lbi True $ withPackageDB lbi
     buildExe verbosity pkg_descr lbi exe exeClbi
 
 

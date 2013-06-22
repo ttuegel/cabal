@@ -88,7 +88,7 @@ import Distribution.Simple.Program
          , rawSystemProgramConf, rawSystemProgram
          , greencardProgram, cpphsProgram, hsc2hsProgram, c2hsProgram
          , happyProgram, alexProgram, haddockProgram, ghcProgram, gccProgram )
-import Distribution.Simple.Test ( writeSimpleTestStub, stubFilePath, stubName )
+import Distribution.Simple.Test ( writeSimpleTestWrapper, wrapperFilePath )
 import Distribution.System
          ( OS(OSX, Windows), buildOS )
 import Distribution.Text
@@ -203,15 +203,15 @@ preprocessComponent pd comp lbi isSrcDist verbosity handlers = case comp of
     setupMessage verbosity ("Preprocessing test suite '" ++ nm ++ "' for") (packageId pd)
     case testInterface test of
       TestSuiteExeV10 _ f ->
-          preProcessTest test f $ buildDir lbi </> testName test
-              </> testName test ++ "-tmp"
+          preProcessTest test f $
+              buildDir lbi </> testName test </> testName test ++ "-tmp"
       TestSuiteLibV09 _ _ -> do
-          let testDir = buildDir lbi </> stubName test
-                  </> stubName test ++ "-tmp"
-          writeSimpleTestStub test testDir
-          preProcessTest test (stubFilePath test) testDir
-      TestSuiteUnsupported tt -> die $ "No support for preprocessing test "
-                                    ++ "suite type " ++ display tt
+          let testDir =
+                  buildDir lbi </> testName test </> testName test ++ "-tmp"
+          writeSimpleTestWrapper test testDir
+          preProcessTest test (wrapperFilePath test) testDir
+      TestSuiteUnsupported tt -> die $
+          "No support for preprocessing test suite type " ++ display tt
   CBench bm@Benchmark{ benchmarkName = nm } -> do
     setupMessage verbosity ("Preprocessing benchmark '" ++ nm ++ "' for") (packageId pd)
     case benchmarkInterface bm of

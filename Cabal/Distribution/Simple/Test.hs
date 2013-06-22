@@ -42,10 +42,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. -}
 
 module Distribution.Simple.Test
     ( test
-    , stubMain
-    , writeSimpleTestStub
-    , stubFilePath
-    , stubName
+    , wrapperMain
+    , writeSimpleTestWrapper
+    , wrapperFilePath
     , PackageLog(..)
     , TestSuiteLog(..)
     , TestLogs(..)
@@ -314,8 +313,8 @@ test pkg_descr lbi flags = do
                     go preTest cmd postTest
 
               PD.TestSuiteLibV09 _ _ -> do
-                    let cmd = LBI.buildDir lbi </> stubName suite
-                            </> stubName suite <.> exeExtension
+                    let cmd = LBI.buildDir lbi </> PD.testName suite
+                            </> PD.testName suite <.> exeExtension
                         preTest f = show ( f
                                          , PD.testName suite
                                          )
@@ -462,61 +461,59 @@ packageLogPath template pkg_descr lbi =
                 (PD.package pkg_descr) (compilerId $ LBI.compiler lbi)
                 (LBI.hostPlatform lbi)
 
--- | The filename of the source file for the stub executable associated with a
--- library 'TestSuite'.
-stubFilePath :: PD.TestSuite -> FilePath
-stubFilePath t = stubName t <.> "hs"
+-- | The filename of the source file for the wrapper associated with
+-- a detailed 'TestSuite'.
+wrapperFilePath :: PD.TestSuite -> FilePath
+wrapperFilePath t = PD.testName t ++ "Wrapper" <.> "hs"
 
--- | The name of the stub executable associated with a library 'TestSuite'.
-stubName :: PD.TestSuite -> FilePath
-stubName t = PD.testName t ++ "Stub"
-
--- | Write the source file for a library 'TestSuite' stub executable.
-writeSimpleTestStub :: PD.TestSuite -- ^ library 'TestSuite' for which a stub
-                                    -- is being created
-                    -> FilePath     -- ^ path to directory where stub source
-                                    -- should be located
-                    -> IO ()
-writeSimpleTestStub t dir = do
+-- | Write the source file for a detailed 'TestSuite' wrapper.
+-- The source file is created securely with `openTempFile` to avoid name
+-- collisions.
+writeSimpleTestWrapper :: PD.TestSuite -- ^ create a wrapper for this
+                                       -- 'TestSuite'
+                       -> FilePath     -- ^ directory where source file will be
+                                       -- writter
+                       -> IO ()
+writeSimpleTestWrapper t dir = do
     createDirectoryIfMissing True dir
-    let filename = dir </> stubFilePath t
+    let filename = dir </> wrapperFilePath t
         PD.TestSuiteLibV09 _ m = PD.testInterface t
-    writeFile filename $ simpleTestStub m
+    writeFile filename $ simpleTestWrapper m
 
--- | Source code for library test suite stub executable
-simpleTestStub :: ModuleName -> String
-simpleTestStub m = unlines
+-- | Source code for detailed test suite wrapper.
+simpleTestWrapper :: ModuleName -> String
+simpleTestWrapper m = unlines
     [ "module Main ( main ) where"
-    , "import Distribution.Simple.Test ( stubMain )"
+    , "import Distribution.Simple.Test ( wrapperMain )"
     , "import " ++ show (disp m) ++ " ( tests )"
     , "main :: IO ()"
-    , "main = stubMain tests"
+    , "main = wrapperMain tests"
     ]
 
--- | Main function for test stubs. Once, it was written directly into the stub,
--- but minimizing the amount of code actually in the stub maximizes the number
--- of detectable errors when Cabal is compiled.
-stubMain :: IO [Test] -> IO ()
-stubMain tests = do
+-- | Main function for test wrappers. Once, it was written directly into
+-- the wrapper, but minimizing the amount of code actually in the wrapper
+-- source maximizes the number of detectable errors when Cabal is compiled.
+wrapperMain :: IO [Test] -> IO ()
+wrapperMain tests = do
     (f, n) <- fmap read getContents
     dir <- getCurrentDirectory
-    results <- tests >>= stubRunTests
+    results <- tests >>= wrapperRunTests
     setCurrentDirectory dir
-    stubWriteLog f n results
+    wrapperWriteLog f n results
 
--- | The test runner used in library "TestSuite" stub executables.  Runs a list
+-- | The test runner used in detailed 'TestSuite' wrappers.  Runs a list
 -- of 'Test's.  An executable calling this function is meant to be invoked as
 -- the child of a Cabal process during @.\/setup test@.  A 'TestSuiteLog',
 -- provided by Cabal, is read from the standard input; it supplies the name of
 -- the test suite and the location of the machine-readable test suite log file.
 -- Human-readable log information is written to the standard output for capture
 -- by the calling Cabal process.
-stubRunTests :: [Test] -> IO TestLogs
-stubRunTests tests = do
-    logs <- mapM stubRunTests' tests
+wrapperRunTests :: [Test] -> IO TestLogs
+wrapperRunTests tests = do
+    logs <- mapM wrapperRunTests' tests
     return $ GroupLogs "Default" logs
   where
-    stubRunTests' (Test t) = do
+    wrapperRunTests' (Test t) = do
         l <- run t >>= finish
         summarizeTest normal Always l
         return l
@@ -528,18 +525,18 @@ stubRunTests tests = do
                 , testResult = result
                 }
         finish (Progress _ next) = next >>= finish
-    stubRunTests' g@(Group {}) = do
-        logs <- mapM stubRunTests' $ groupTests g
+    wrapperRunTests' g@(Group {}) = do
+        logs <- mapM wrapperRunTests' $ groupTests g
         return $ GroupLogs (groupName g) logs
-    stubRunTests' (ExtraOptions _ t) = stubRunTests' t
+    wrapperRunTests' (ExtraOptions _ t) = wrapperRunTests' t
     maybeDefaultOption opt =
         maybe Nothing (\d -> Just (optionName opt, d)) $ optionDefault opt
     defaultOptions testInst = mapMaybe maybeDefaultOption $ options testInst
 
--- | From a test stub, write the 'TestSuiteLog' to temporary file for the calling
--- Cabal process to read.
-stubWriteLog :: FilePath -> String -> TestLogs -> IO ()
-stubWriteLog f n logs = do
+-- | From a test wrapper, write the 'TestSuiteLog' to temporary file for
+-- the calling Cabal process to read.
+wrapperWriteLog :: FilePath -> String -> TestLogs -> IO ()
+wrapperWriteLog f n logs = do
     let testLog = TestSuiteLog { testSuiteName = n, testLogs = logs, logFile = f }
     writeFile (logFile testLog) $ show testLog
     when (suiteError testLog) $ exitWith $ ExitFailure 2
