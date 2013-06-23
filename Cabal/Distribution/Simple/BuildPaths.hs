@@ -52,6 +52,7 @@ module Distribution.Simple.BuildPaths (
     mkLibName,
     mkProfLibName,
     mkSharedLibName,
+    libBuildDir,
 
     exeExtension,
     objExtension,
@@ -64,6 +65,8 @@ import System.FilePath ((</>), (<.>))
 
 import Distribution.Package
          ( packageName )
+import Distribution.PackageDescription
+        ( Library(..) )
 import Distribution.ModuleName (ModuleName)
 import qualified Distribution.ModuleName as ModuleName
 import Distribution.Compiler
@@ -123,6 +126,9 @@ mkSharedLibName :: CompilerId -> LibraryName -> String
 mkSharedLibName (CompilerId compilerFlavor compilerVersion) (LibraryName lib)
   = "lib" ++ lib ++ "-" ++ comp <.> dllExtension
   where comp = display compilerFlavor ++ display compilerVersion
+
+libBuildDir :: Library -> LocalBuildInfo -> FilePath
+libBuildDir (Library { libName = name }) lbi = buildDir lbi </> name
 
 -- ------------------------------------------------------------
 -- * Platform file extensions

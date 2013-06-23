@@ -656,7 +656,7 @@ buildLib verbosity pkg_descr lbi lib clbi = do
              [] -> die "No library name found when building library"
              _  -> die "Multiple library names found when building library"
 
-  let pref = buildDir lbi
+  let pref = libBuildDir lib lbi
       pkgid = packageId pkg_descr
       whenVanillaLib forceVanilla = when (forceVanilla || withVanillaLib lbi)
       whenProfLib = when (withProfLib lbi)

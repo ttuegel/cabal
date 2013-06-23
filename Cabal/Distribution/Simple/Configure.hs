@@ -372,9 +372,13 @@ configure (pkg_descr0, pbi) cfg
 
         -- add extra include/lib dirs as specified in cfg
         -- we do it here so that those get checked too
-        let pkg_descr =
+        let pkg_descr1 =
                 enableCoverage (fromFlag (configLibCoverage cfg)) distPref
                 $ addExtraIncludeLibDirs pkg_descr0'
+            setLibName l =
+                l { libName = display (pkgName $ package pkg_descr1) }
+            pkg_descr = pkg_descr1
+                { library = fmap setLibName $ library pkg_descr1 }
 
         when (not (null flags)) $
           info verbosity $ "Flags chosen: "

@@ -71,7 +71,7 @@ import Distribution.Simple.LocalBuildInfo
          , ComponentName(..), getComponentLocalBuildInfo
          , LibraryName(..)
          , InstallDirs(..), absoluteInstallDirs )
-import Distribution.Simple.BuildPaths (haddockName)
+import Distribution.Simple.BuildPaths ( haddockName, libBuildDir )
 import qualified Distribution.Simple.GHC  as GHC
 import qualified Distribution.Simple.LHC  as LHC
 import qualified Distribution.Simple.Hugs as Hugs
@@ -195,9 +195,9 @@ generateRegistrationInfo verbosity pkg lib lbi clbi inplace distPref = do
     case compilerFlavor comp of
      GHC | compilerVersion comp >= Version [6,11] [] -> do
             s <- GHC.libAbiHash verbosity pkg lbi lib clbi
-            return (InstalledPackageId (display (packageId pkg) ++ '-':s))
+            return (InstalledPackageId (libName lib ++ '-':s))
      _other -> do
-            return (InstalledPackageId (display (packageId pkg)))
+            return (InstalledPackageId $ libName lib)
 
   let installedPkgInfo
         | inplace   = inplaceInstalledPackageInfo pwd distPref
@@ -351,7 +351,7 @@ inplaceInstalledPackageInfo inplaceDir distPref pkg lib lbi clbi =
     adjustRelativeIncludeDirs = map (inplaceDir </>)
     installDirs =
       (absoluteInstallDirs pkg lbi NoCopyDest) {
-        libdir     = inplaceDir </> buildDir lbi,
+        libdir     = inplaceDir </> libBuildDir lib lbi,
         datadir    = inplaceDir,
         datasubdir = distPref,
         docdir     = inplaceDocdir,
