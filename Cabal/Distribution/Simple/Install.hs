@@ -52,7 +52,7 @@ import Distribution.Package (Package(..))
 import Distribution.Simple.LocalBuildInfo (
         LocalBuildInfo(..), InstallDirs(..), absoluteInstallDirs,
         substPathTemplate, withLibLBI)
-import Distribution.Simple.BuildPaths (haddockName, haddockPref)
+import Distribution.Simple.BuildPaths (haddockName, haddockPref, libBuildDir)
 import Distribution.Simple.Utils
          ( createDirectoryIfMissingVerbose
          , installDirectoryContents, installOrdinaryFile, isInSearchPath
@@ -156,8 +156,9 @@ install pkg_descr lbi flags = do
   when (hasLibs pkg_descr) $ installIncludeFiles verbosity pkg_descr incPref
 
   case compilerFlavor (compiler lbi) of
-     GHC  -> do withLibLBI pkg_descr lbi $
-                  GHC.installLib verbosity lbi libPref dynlibPref buildPref pkg_descr
+     GHC  -> do withLibLBI pkg_descr lbi $ \lib clbi ->
+                  GHC.installLib verbosity lbi libPref dynlibPref
+                                 (libBuildDir lib lbi) pkg_descr lib clbi
                 withExe pkg_descr $
                   GHC.installExe verbosity lbi installDirs buildPref (progPrefixPref, progSuffixPref) pkg_descr
      LHC  -> do withLibLBI pkg_descr lbi $

@@ -1001,7 +1001,7 @@ libAbiHash verbosity pkg_descr lbi lib clbi = do
              (compiler lbi) (withProfLib lbi) (libBuildInfo lib)
   let
       vanillaArgs =
-        (componentGhcOptions verbosity lbi libBi clbi (buildDir lbi))
+        (componentGhcOptions verbosity lbi libBi clbi (libBuildDir lib lbi))
         `mappend` mempty {
           ghcOptMode         = toFlag GhcModeAbiHash,
           ghcOptPackageName  = toFlag (packageId pkg_descr),
