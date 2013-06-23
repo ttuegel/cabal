@@ -173,7 +173,9 @@ install pkg_descr lbi flags = do
        let targetProgPref = progdir (absoluteInstallDirs pkg_descr lbi NoCopyDest)
        let scratchPref = scratchDir lbi
        Hugs.install verbosity lbi libPref progPref binPref targetProgPref scratchPref (progPrefixPref, progSuffixPref) pkg_descr
-     NHC  -> do withLibLBI pkg_descr lbi $ NHC.installLib verbosity libPref buildPref (packageId pkg_descr)
+     NHC  -> do withLibLBI pkg_descr lbi $ \lib clbi ->
+                    NHC.installLib verbosity libPref (libBuildDir lib lbi)
+                                   (packageId pkg_descr) lib clbi
                 withExe pkg_descr $ NHC.installExe verbosity binPref buildPref (progPrefixPref, progSuffixPref)
      UHC  -> do withLib pkg_descr $ UHC.installLib verbosity lbi libPref dynlibPref buildPref pkg_descr
      _    -> die $ "installing with "

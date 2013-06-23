@@ -66,7 +66,7 @@ import qualified Distribution.ModuleName as ModuleName
 import Distribution.Simple.LocalBuildInfo
         ( LocalBuildInfo(..), ComponentLocalBuildInfo(..) )
 import Distribution.Simple.BuildPaths
-        ( mkLibName, objExtension, exeExtension )
+        ( libBuildDir, mkLibName, objExtension, exeExtension )
 import Distribution.Simple.Compiler
          ( CompilerFlavor(..), CompilerId(..), Compiler(..)
          , Flag, languageToFlags, extensionsToFlags
@@ -299,7 +299,7 @@ buildLib verbosity pkg_descr lbi lib clbi = do
       languageFlags = languageToFlags (compiler lbi) (defaultLanguage bi)
                    ++ extensionsToFlags (compiler lbi) (usedExtensions bi)
   inFiles <- getModulePaths lbi bi modules
-  let targetDir = buildDir lbi
+  let targetDir = libBuildDir lib lbi
       srcDirs  = nub (map takeDirectory inFiles)
       destDirs = map (targetDir </>) srcDirs
   mapM_ (createDirectoryIfMissingVerbose verbosity True) destDirs
