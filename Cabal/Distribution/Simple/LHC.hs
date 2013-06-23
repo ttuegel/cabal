@@ -335,8 +335,8 @@ substTopDir topDir ipo
 buildLib :: Verbosity -> PackageDescription -> LocalBuildInfo
                       -> Library            -> ComponentLocalBuildInfo -> IO ()
 buildLib verbosity pkg_descr lbi lib clbi = do
-  libName <- case componentLibraries clbi of
-             [libName] -> return libName
+  libraryName <- case componentLibraries clbi of
+             [libraryName] -> return libraryName
              [] -> die "No library name found when building library"
              _  -> die "Multiple library names found when building library"
 
@@ -394,10 +394,10 @@ buildLib verbosity pkg_descr lbi lib clbi = do
   let cObjs = map (`replaceExtension` objExtension) (cSources libBi)
       cSharedObjs = map (`replaceExtension` ("dyn_" ++ objExtension)) (cSources libBi)
       cid = compilerId (compiler lbi)
-      vanillaLibFilePath = libTargetDir </> mkLibName           libName
-      profileLibFilePath = libTargetDir </> mkProfLibName       libName
-      sharedLibFilePath  = libTargetDir </> mkSharedLibName cid libName
-      ghciLibFilePath    = libTargetDir </> mkGHCiLibName       libName
+      vanillaLibFilePath = libTargetDir </> mkLibName           libraryName
+      profileLibFilePath = libTargetDir </> mkProfLibName       libraryName
+      sharedLibFilePath  = libTargetDir </> mkSharedLibName cid libraryName
+      ghciLibFilePath    = libTargetDir </> mkGHCiLibName       libraryName
 
   stubObjs <- fmap catMaybes $ sequence
     [ findFileWithExtension [objExtension] [libTargetDir]

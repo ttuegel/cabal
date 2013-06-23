@@ -287,8 +287,8 @@ setInstalledPackageId pkginfo = pkginfo
 buildLib :: Verbosity -> PackageDescription -> LocalBuildInfo
                       -> Library            -> ComponentLocalBuildInfo -> IO ()
 buildLib verbosity pkg_descr lbi lib clbi = do
-  libName <- case componentLibraries clbi of
-             [libName] -> return libName
+  libraryName <- case componentLibraries clbi of
+             [libraryName] -> return libraryName
              [] -> die "No library name found when building library"
              _  -> die "Multiple library names found when building library"
   let conf = withPrograms lbi
@@ -331,7 +331,7 @@ buildLib verbosity pkg_descr lbi lib clbi = do
   info verbosity "Linking..."
   let --cObjs = [ targetDir </> cFile `replaceExtension` objExtension
       --        | cFile <- cSources bi ]
-      libFilePath = targetDir </> mkLibName libName
+      libFilePath = targetDir </> mkLibName libraryName
       hObjs = [ targetDir </> ModuleName.toFilePath m <.> objExtension
               | m <- modules ]
 
@@ -428,7 +428,8 @@ installLib verbosity pref buildPref _pkgid lib clbi
          findModuleFiles [buildPref] ["hi"] modules
            >>= installOrdinaryFiles verbosity pref
          let libNames = map mkLibName (componentLibraries clbi)
-             installLib' libName = installOrdinaryFile verbosity
-                                                       (buildPref </> libName)
-                                                       (pref </> libName)
+             installLib' libraryName =
+                 installOrdinaryFile verbosity
+                                     (buildPref </> libraryName)
+                                     (pref </> libraryName)
          mapM_ installLib' libNames

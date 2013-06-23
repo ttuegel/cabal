@@ -335,9 +335,9 @@ checkTestSuite pkg test =
       TestSuiteExeV10 _ f -> takeExtension f `notElem` [".hs", ".lhs"]
       _                   -> False
 
-    libNameClash = testName test `elem` [ libName
+    libNameClash = testName test `elem` [ libraryName
                                         | _lib <- maybeToList (library pkg)
-                                        , let PackageName libName =
+                                        , let PackageName libraryName =
                                                 pkgName (package pkg) ]
 
 checkBenchmark :: PackageDescription -> Benchmark -> [PackageCheck]
@@ -381,9 +381,9 @@ checkBenchmark pkg bm =
       BenchmarkExeV10 _ f -> takeExtension f `notElem` [".hs", ".lhs"]
       _                   -> False
 
-    libNameClash = benchmarkName bm `elem` [ libName
+    libNameClash = benchmarkName bm `elem` [ libraryName
                                            | _lib <- maybeToList (library pkg)
-                                           , let PackageName libName =
+                                           , let PackageName libraryName =
                                                    pkgName (package pkg) ]
 
 -- ------------------------------------------------------------

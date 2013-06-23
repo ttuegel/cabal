@@ -215,6 +215,7 @@ buildComponent verbosity pkg_descr lbi suffixes
     pwd <- getCurrentDirectory
     let bi  = testBuildInfo test
         lib = Library {
+                libName        = testName test,
                 exposedModules = [ m ],
                 libExposed     = True,
                 libBuildInfo   = bi

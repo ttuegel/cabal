@@ -297,6 +297,7 @@ instance Text BuildType where
 -- The Library type
 
 data Library = Library {
+        libName           :: String,
         exposedModules    :: [ModuleName],
         libExposed        :: Bool, -- ^ Is the lib to be exposed by default?
         libBuildInfo      :: BuildInfo
@@ -305,11 +306,13 @@ data Library = Library {
 
 instance Monoid Library where
   mempty = Library {
+    libName        = mempty,
     exposedModules = mempty,
     libExposed     = True,
     libBuildInfo   = mempty
   }
   mappend a b = Library {
+    libName        = combine libName,
     exposedModules = combine exposedModules,
     libExposed     = libExposed a && libExposed b, -- so False propagates
     libBuildInfo   = combine libBuildInfo

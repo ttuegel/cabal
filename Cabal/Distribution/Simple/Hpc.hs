@@ -139,7 +139,7 @@ markupTest :: Verbosity
            -> String       -- ^ Library name
            -> TestSuite
            -> IO ()
-markupTest verbosity lbi distPref libName suite = do
+markupTest verbosity lbi distPref libraryName suite = do
     tixFileExists <- doesFileExist $ tixFilePath distPref $ testName suite
     when tixFileExists $ do
         -- behaviour of 'markup' depends on version, so we need *a* version
@@ -154,7 +154,7 @@ markupTest verbosity lbi distPref libName suite = do
                             ++ htmlDir distPref (testName suite)
                             </> "hpc_index" <.> "html"
   where
-    mixDirs = map (mixDir distPref) [ testName suite, libName ]
+    mixDirs = map (mixDir distPref) [ testName suite, libraryName ]
 
 -- | Generate the HTML markup for all of a package's test suites.
 markupPackage :: Verbosity
@@ -163,7 +163,7 @@ markupPackage :: Verbosity
               -> String         -- ^ Library name
               -> [TestSuite]
               -> IO ()
-markupPackage verbosity lbi distPref libName suites = do
+markupPackage verbosity lbi distPref libraryName suites = do
     let tixFiles = map (tixFilePath distPref . testName) suites
     tixFilesExist <- mapM doesFileExist tixFiles
     when (and tixFilesExist) $ do
@@ -171,8 +171,8 @@ markupPackage verbosity lbi distPref libName suites = do
         -- but no particular one
         (hpc, hpcVer, _) <- requireProgramVersion verbosity
             hpcProgram anyVersion (withPrograms lbi)
-        let outFile = tixFilePath distPref libName
-            htmlDir' = htmlDir distPref libName
+        let outFile = tixFilePath distPref libraryName
+            htmlDir' = htmlDir distPref libraryName
             excluded = concatMap testModules suites ++ [ main ]
         createDirectoryIfMissing True $ takeDirectory outFile
         union hpc verbosity tixFiles outFile excluded
@@ -180,4 +180,4 @@ markupPackage verbosity lbi distPref libName suites = do
         notice verbosity $ "Package coverage report written to "
                            ++ htmlDir' </> "hpc_index.html"
   where
-    mixDirs = map (mixDir distPref) $ libName : map testName suites
+    mixDirs = map (mixDir distPref) $ libraryName : map testName suites
