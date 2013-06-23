@@ -77,7 +77,8 @@ import Distribution.Simple.Compiler
          ( CompilerFlavor(..), Compiler(..), compilerFlavor, compilerVersion )
 import Distribution.Simple.LocalBuildInfo
          ( LocalBuildInfo(..), Component(..) )
-import Distribution.Simple.BuildPaths (autogenModulesDir,cppHeaderName)
+import Distribution.Simple.BuildPaths
+        ( autogenModulesDir, cppHeaderName, libBuildDir )
 import Distribution.Simple.Utils
          ( createDirectoryIfMissingVerbose, withUTF8FileContents, writeUTF8File
          , die, setupMessage, intercalate, copyFileVerbose
@@ -190,7 +191,7 @@ preprocessComponent pd comp lbi isSrcDist verbosity handlers = case comp of
     let dirs = hsSourceDirs bi ++ [autogenModulesDir lbi]
     setupMessage verbosity "Preprocessing library" (packageId pd)
     forM_ (map ModuleName.toFilePath $ libModules lib) $
-      pre dirs (buildDir lbi) (localHandlers bi)
+      pre dirs (libBuildDir lib lbi) (localHandlers bi)
   (CExe exe@Executable { buildInfo = bi, exeName = nm }) -> do
     let exeDir = buildDir lbi </> nm </> nm ++ "-tmp"
         dirs   = hsSourceDirs bi ++ [autogenModulesDir lbi]
