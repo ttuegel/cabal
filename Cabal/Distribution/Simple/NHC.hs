@@ -332,8 +332,15 @@ buildLib verbosity pkg_descr lbi lib clbi = do
   let --cObjs = [ targetDir </> cFile `replaceExtension` objExtension
       --        | cFile <- cSources bi ]
       libFilePath = targetDir </> mkLibName libraryName
-      hObjs = [ targetDir </> ModuleName.toFilePath m <.> objExtension
-              | m <- modules ]
+
+  hObjs <- let notFound module_ =
+                 die $ "can't find source for module " ++ display module_
+               objDirs = map (targetDir </>) ("." : hsSourceDirs bi)
+           in sequence
+    [ findFileWithExtension [objExtension] objDirs
+                            (ModuleName.toFilePath module_)
+        >>= maybe (notFound module_) (return . normalise)
+    | module_ <- modules ]
 
   unless (null hObjs {-&& null cObjs-}) $ do
     -- first remove library if it exists
