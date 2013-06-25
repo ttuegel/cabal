@@ -128,7 +128,8 @@ mkSharedLibName (CompilerId compilerFlavor compilerVersion) (LibraryName lib)
   where comp = display compilerFlavor ++ display compilerVersion
 
 libBuildDir :: Library -> LocalBuildInfo -> FilePath
-libBuildDir (Library { libName = name }) lbi = buildDir lbi </> name
+libBuildDir (Library { libName = name }) lbi =
+    buildDir lbi </> "lib-" ++ name </> "tmp"
 
 -- ------------------------------------------------------------
 -- * Platform file extensions
