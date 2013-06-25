@@ -197,7 +197,7 @@ buildLib verbosity pkg_descr lbi lib clbi = do
                    -- common flags lib/exe
                 ++ constructUHCCmdLine userPkgDir systemPkgDir
                                        lbi (libBuildInfo lib) clbi
-                                       (buildDir lbi) verbosity
+                                       (libBuildDir lib lbi) verbosity
                    -- source files
                    -- suboptimal: UHC does not understand module names, so
                    -- we replace periods by path separators
