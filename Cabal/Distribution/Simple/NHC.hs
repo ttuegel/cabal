@@ -53,14 +53,14 @@ module Distribution.Simple.NHC (
 import Distribution.Package
          ( PackageName, PackageIdentifier(..), InstalledPackageId(..)
          , packageName )
+import Distribution.PackageDescription
+        ( PackageDescription(..), BuildInfo(..), Library(..), Executable(..)
+        , hcOptions, usedExtensions )
 import Distribution.InstalledPackageInfo
          ( InstalledPackageInfo
          , InstalledPackageInfo_( InstalledPackageInfo, installedPackageId
                                 , sourcePackageId )
          , emptyInstalledPackageInfo, parseInstalledPackageInfo )
-import Distribution.PackageDescription
-        ( PackageDescription(..), BuildInfo(..), Library(..), Executable(..)
-        , hcOptions, usedExtensions )
 import Distribution.ModuleName (ModuleName)
 import qualified Distribution.ModuleName as ModuleName
 import Distribution.Simple.LocalBuildInfo
@@ -102,7 +102,7 @@ import Data.Char ( toLower )
 import Data.List ( nub )
 import Data.Maybe    ( catMaybes )
 import Data.Monoid   ( Monoid(..) )
-import Control.Monad ( when, unless )
+import Control.Monad ( unless, when )
 import Distribution.Compat.Exception
 import Distribution.System ( Platform )
 
@@ -366,15 +366,16 @@ buildExe verbosity pkg_descr lbi exe clbi = do
   inFiles <- getModulePaths lbi bi modules
   let targetDir = buildDir lbi </> exeName exe
       exeDir    = targetDir </> (exeName exe ++ "-tmp")
-      srcDirs   = nub (map takeDirectory (modulePath exe : inFiles))
-      destDirs  = map (exeDir </>) srcDirs
+      destDirs  = map (exeDir </>) $ hsSourceDirs bi
   mapM_ (createDirectoryIfMissingVerbose verbosity True) destDirs
   rawSystemProgramConf verbosity hmakeProgram conf $
        ["-hc=" ++ programPath nhcProg]
     ++ nhcVerbosityOptions verbosity
-    ++ ["-d", targetDir, "-hidir", targetDir]
+    ++ ["-d", exeDir, "-hidir", exeDir]
     ++ maybe [] (hcOptions NHC . libBuildInfo)
                            (library pkg_descr)
+    ++ map ("-I" ++) (hsSourceDirs bi)
+    ++ map (("-I" ++) . (exeDir </>)) (hsSourceDirs bi)
     ++ languageFlags
     ++ concat [ ["-package", display (packageName pkgid) ]
               | (_, pkgid) <- componentPackageDeps clbi ]
