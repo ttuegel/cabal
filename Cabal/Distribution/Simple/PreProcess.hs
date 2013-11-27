@@ -88,7 +88,8 @@ import Distribution.Simple.Program
          , rawSystemProgramConf, rawSystemProgram
          , greencardProgram, cpphsProgram, hsc2hsProgram, c2hsProgram
          , happyProgram, alexProgram, haddockProgram, ghcProgram, gccProgram )
-import Distribution.Simple.Test ( writeSimpleTestStub, stubFilePath, stubName )
+import Distribution.Simple.Test.LibV09
+         ( writeStubSource, stubFilePath, stubName )
 import Distribution.System
          ( OS(..), buildOS, Arch(..), Platform(..) )
 import Distribution.Text
@@ -208,7 +209,7 @@ preprocessComponent pd comp lbi isSrcDist verbosity handlers = case comp of
       TestSuiteLibV09 _ _ -> do
           let testDir = buildDir lbi </> stubName test
                   </> stubName test ++ "-tmp"
-          writeSimpleTestStub test testDir
+          writeStubSource test testDir
           preProcessTest test (stubFilePath test) testDir
       TestSuiteUnsupported tt -> die $ "No support for preprocessing test "
                                     ++ "suite type " ++ display tt
