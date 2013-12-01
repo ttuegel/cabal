@@ -67,7 +67,7 @@ import System.Directory
     , getCurrentDirectory, removeDirectoryRecursive, removeFile )
 import System.Exit ( ExitCode(..) )
 import System.FilePath ( (</>), (<.>) )
-import System.IO ( hClose, IOMode(..), openFile )
+import System.IO ( hClose )
 
 runTest :: TestFlags
         -- ^ flags Cabal was invoked with
@@ -85,7 +85,6 @@ runTest flags pkgDescr lbi suite testLogPath = do
             </> PD.testName suite
             </> PD.testName suite
             <.> exeExtension
-        preTest _ = ""
         postTest exit _ =
             let r = case exit of
                     ExitSuccess -> Pass
@@ -100,7 +99,7 @@ runTest flags pkgDescr lbi suite testLogPath = do
                     }
                 , logFile = ""
                 }
-    testController flags pkgDescr lbi suite preTest cmd postTest testLogPath
+    testController flags pkgDescr lbi suite cmd postTest testLogPath
 
 -- | Run a test executable, logging the output and generating the appropriate
 -- summary messages.
@@ -112,15 +111,13 @@ testController :: TestFlags
                -- ^ information from the configure step
                -> PD.TestSuite
                -- ^ TestSuite being tested
-               -> (FilePath -> String)
-               -- ^ prepare standard input for test executable
                -> FilePath -- ^ executable name
                -> (ExitCode -> String -> TestSuiteLog)
                -- ^ generator for the TestSuiteLog
                -> (TestSuiteLog -> FilePath)
                -- ^ generator for final human-readable log filename
                -> IO TestSuiteLog
-testController flags pkg_descr lbi suite preTest cmd postTest logNamer = do
+testController flags pkg_descr lbi suite cmd postTest logNamer = do
     let distPref = fromFlag $ testDistPref flags
         verbosity = fromFlag $ testVerbosity flags
         testLogDir = distPref </> "test"
@@ -129,82 +126,73 @@ testController flags pkg_descr lbi suite preTest cmd postTest logNamer = do
     pwd <- getCurrentDirectory
     existingEnv <- getEnvironment
     let dataDirPath = pwd </> PD.dataDir pkg_descr
-        shellEnv = (pkgPathEnvVar pkg_descr "datadir", dataDirPath)
-                   : ("HPCTIXFILE", (</>) pwd
-                       $ tixFilePath distPref $ PD.testName suite)
+        tixRelativePath = tixFilePath distPref $ PD.testName suite
+        shellEnv =   (pkgPathEnvVar pkg_descr "datadir", dataDirPath)
+                   : ("HPCTIXFILE", pwd </> tixRelativePath)
                    : existingEnv
 
-    bracket (openCabalTemp testLogDir) deleteIfExists $ \tempLog ->
-        bracket (openCabalTemp testLogDir) deleteIfExists $ \tempInput -> do
+    withCabalTemp testLogDir $ \(tempLog, hLog) -> do
+        -- Check that the test executable exists.
+        exists <- doesFileExist cmd
+        unless exists $ die $ "Error: Could not find test program \"" ++ cmd
+                                ++ "\". Did you build the package first?"
 
-            -- Check that the test executable exists.
-            exists <- doesFileExist cmd
-            unless exists $ die $ "Error: Could not find test program \"" ++ cmd
-                                  ++ "\". Did you build the package first?"
+        -- Remove old .tix files if appropriate.
+        unless (fromFlag $ testKeepTix flags) $ do
+            let tDir = tixDir distPref $ PD.testName suite
+            exists' <- doesDirectoryExist tDir
+            when exists' $ removeDirectoryRecursive tDir
 
-            -- Remove old .tix files if appropriate.
-            unless (fromFlag $ testKeepTix flags) $ do
-                let tDir = tixDir distPref $ PD.testName suite
-                exists' <- doesDirectoryExist tDir
-                when exists' $ removeDirectoryRecursive tDir
+        -- Create directory for HPC files.
+        createDirectoryIfMissing True $ tixDir distPref $ PD.testName suite
 
-            -- Create directory for HPC files.
-            createDirectoryIfMissing True $ tixDir distPref $ PD.testName suite
+        -- Write summary notices indicating start of test suite
+        notice verbosity $ summarizeSuiteStart $ PD.testName suite
 
-            -- Write summary notices indicating start of test suite
-            notice verbosity $ summarizeSuiteStart $ PD.testName suite
+        -- Run test executable
+        exit <- do
+            rawSystemIOWithEnv verbosity cmd opts Nothing (Just shellEnv)
+                               Nothing (Just hLog) (Just hLog)
 
-            -- Prepare standard input for test executable
-            appendFile tempInput $ preTest tempInput
+        -- Generate final log file name
+        let suiteLog = postTest exit ""
+            finalLogName = testLogDir </> logNamer suiteLog
+            suiteLog' = suiteLog { logFile = finalLogName }
 
-            -- Run test executable
-            exit <- do
-              hLog <- openFile tempLog AppendMode
-              hIn  <- openFile tempInput ReadMode
-              -- these handles get closed by rawSystemIOWithEnv
-              rawSystemIOWithEnv verbosity cmd opts Nothing (Just shellEnv)
-                                 (Just hIn) (Just hLog) (Just hLog)
+        -- Write summary notice to log file indicating start of test suite
+        appendFile (logFile suiteLog') $ summarizeSuiteStart $ PD.testName suite
 
-            -- Generate TestSuiteLog from executable exit code and a machine-
-            -- readable test log
-            suiteLog <- fmap (postTest exit $!) $ readFile tempInput
+        -- Append contents of temporary log file to the final human-
+        -- readable log file
+        readFile tempLog >>= appendFile (logFile suiteLog')
 
-            -- Generate final log file name
-            let finalLogName = testLogDir </> logNamer suiteLog
-                suiteLog' = suiteLog { logFile = finalLogName }
+        -- Write end-of-suite summary notice to log file
+        appendFile (logFile suiteLog') $ summarizeSuiteFinish suiteLog'
 
-            -- Write summary notice to log file indicating start of test suite
-            appendFile (logFile suiteLog') $ summarizeSuiteStart $ PD.testName suite
+        -- Show the contents of the human-readable log file on the terminal
+        -- if there is a failure and/or detailed output is requested
+        let details = fromFlag $ testShowDetails flags
+            whenPrinting = when $ (details > Never)
+                && (not (suitePassed suiteLog) || details == Always)
+                && verbosity >= normal
+        whenPrinting $ readFile tempLog >>=
+            putStr . unlines . lines
 
-            -- Append contents of temporary log file to the final human-
-            -- readable log file
-            readFile tempLog >>= appendFile (logFile suiteLog')
+        -- Write summary notice to terminal indicating end of test suite
+        notice verbosity $ summarizeSuiteFinish suiteLog'
 
-            -- Write end-of-suite summary notice to log file
-            appendFile (logFile suiteLog') $ summarizeSuiteFinish suiteLog'
+        markupTest verbosity lbi distPref
+            (display $ PD.package pkg_descr) suite
 
-            -- Show the contents of the human-readable log file on the terminal
-            -- if there is a failure and/or detailed output is requested
-            let details = fromFlag $ testShowDetails flags
-                whenPrinting = when $ (details > Never)
-                    && (not (suitePassed suiteLog) || details == Always)
-                    && verbosity >= normal
-            whenPrinting $ readFile tempLog >>=
-                putStr . unlines . lines
-
-            -- Write summary notice to terminal indicating end of test suite
-            notice verbosity $ summarizeSuiteFinish suiteLog'
-
-            markupTest verbosity lbi distPref
-                (display $ PD.package pkg_descr) suite
-
-            return suiteLog'
+        return suiteLog'
     where
-        deleteIfExists file = do
-            exists <- doesFileExist file
-            when exists $ removeFile file
+        openCabalTemp testLogDir =
+            openTempFile testLogDir $ "cabal-test-" <.> "log"
 
-        openCabalTemp testLogDir = do
-            (f, h) <- openTempFile testLogDir $ "cabal-test-" <.> "log"
-            hClose h >> return f
+        closeCabalTemp (f, h) = do
+            hClose h
+            exists <- doesFileExist f
+            when exists $ removeFile f
 
+        withCabalTemp testLogDir =
+            bracket (openCabalTemp testLogDir) closeCabalTemp
