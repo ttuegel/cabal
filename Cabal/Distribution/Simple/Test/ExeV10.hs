@@ -43,7 +43,19 @@ module Distribution.Simple.Test.ExeV10
     ( runTest
     ) where
 
+import Control.Concurrent ( forkFinally )
+import Control.Concurrent.MVar ( newEmptyMVar, putMVar, takeMVar )
+import Control.Exception ( bracket )
+import Control.Monad ( unless, when )
+import System.Directory
+    ( createDirectoryIfMissing, doesDirectoryExist, doesFileExist
+    , getCurrentDirectory, removeDirectoryRecursive, removeFile )
+import System.Exit ( ExitCode(..) )
+import System.FilePath ( (</>), (<.>) )
+import System.IO ( hClose, hGetContents, hPutStr, stdout )
+
 import Distribution.Compat.Environment ( getEnvironment )
+import Distribution.Compat.Pty ( createPty )
 import Distribution.Compat.TempFile ( openTempFile )
 import qualified Distribution.PackageDescription as PD
 import Distribution.Simple.Build.PathsModule ( pkgPathEnvVar )
@@ -59,15 +71,6 @@ import Distribution.Simple.Utils ( die, notice, rawSystemIOWithEnv )
 import Distribution.TestSuite
 import Distribution.Text
 import Distribution.Verbosity ( normal )
-
-import Control.Exception ( bracket )
-import Control.Monad ( unless, when )
-import System.Directory
-    ( createDirectoryIfMissing, doesDirectoryExist, doesFileExist
-    , getCurrentDirectory, removeDirectoryRecursive, removeFile )
-import System.Exit ( ExitCode(..) )
-import System.FilePath ( (</>), (<.>) )
-import System.IO ( hClose )
 
 runTest :: TestFlags
         -- ^ flags Cabal was invoked with
@@ -149,10 +152,20 @@ testController flags pkg_descr lbi suite cmd postTest logNamer = do
         -- Write summary notices indicating start of test suite
         notice verbosity $ summarizeSuiteStart $ PD.testName suite
 
+        (master, slave) <- createPty
+        mOut <- newEmptyMVar
+        out <- hGetContents master
+        let doOutput = hPutStr stdout out
+            done mvar _ = putMVar mvar ()
+        _ <- forkFinally doOutput (done mOut)
+
         -- Run test executable
         exit <- do
             rawSystemIOWithEnv verbosity cmd opts Nothing (Just shellEnv)
-                               Nothing (Just hLog) (Just hLog)
+                               Nothing (Just slave) (Just slave)
+
+        _ <- takeMVar mOut
+        hClose hLog
 
         -- Generate final log file name
         let suiteLog = postTest exit ""

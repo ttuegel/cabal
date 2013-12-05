@@ -140,6 +140,7 @@ library
     Distribution.Compat.CreatePipe
     Distribution.Compat.Environment
     Distribution.Compat.Exception
+    Distribution.Compat.Pty
     Distribution.Compat.ReadP
     Distribution.Compiler
     Distribution.InstalledPackageInfo
