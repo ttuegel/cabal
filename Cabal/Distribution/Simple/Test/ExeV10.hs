@@ -55,7 +55,7 @@ import System.FilePath ( (</>), (<.>) )
 import System.IO ( hClose, hGetContents, hPutStr, stdout )
 
 import Distribution.Compat.Environment ( getEnvironment )
-import Distribution.Compat.Pty ( createPty )
+import Distribution.Compat.Pty
 import Distribution.Compat.TempFile ( openTempFile )
 import qualified Distribution.PackageDescription as PD
 import Distribution.Simple.Build.PathsModule ( pkgPathEnvVar )
@@ -153,19 +153,23 @@ testController flags pkg_descr lbi suite cmd postTest logNamer = do
         notice verbosity $ summarizeSuiteStart $ PD.testName suite
 
         (master, slave) <- createPty
+        hMaster <- ptyToHandle master
+        hSlave <- ptyToHandle slave
         mOut <- newEmptyMVar
-        out <- hGetContents master
+        out <- hGetContents hMaster
         let doOutput = hPutStr stdout out
             done mvar _ = putMVar mvar ()
+        attrs <- getPtyAttributes ptyOut
         _ <- forkFinally doOutput (done mOut)
 
         -- Run test executable
         exit <- do
             rawSystemIOWithEnv verbosity cmd opts Nothing (Just shellEnv)
-                               Nothing (Just slave) (Just slave)
+                               Nothing (Just hSlave) (Just hSlave)
 
         _ <- takeMVar mOut
         hClose hLog
+        setPtyAttributes ptyOut attrs
 
         -- Generate final log file name
         let suiteLog = postTest exit ""
