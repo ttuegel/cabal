@@ -33,6 +33,7 @@ module Distribution.Simple.Utils (
         rawSystemStdout,
         rawSystemStdInOut,
         rawSystemIOWithEnv,
+        withRawSystemIOEnv,
         maybeExit,
         xargs,
         findProgramLocation,
@@ -395,7 +396,22 @@ rawSystemIOWithEnv :: Verbosity
                    -> Maybe Handle  -- ^ stdout
                    -> Maybe Handle  -- ^ stderr
                    -> IO ExitCode
-rawSystemIOWithEnv verbosity path args mcwd menv inp out err = do
+rawSystemIOWithEnv verb path args mcwd menv inp out err =
+    let act = return ()
+    in fmap snd $ withRawSystemIOEnv verb path args mcwd menv inp out err act
+
+-- Closes the passed in handles before returning.
+withRawSystemIOEnv :: Verbosity
+                   -> FilePath
+                   -> [String]
+                   -> Maybe FilePath           -- ^ New working dir or inherit
+                   -> Maybe [(String, String)] -- ^ New environment or inherit
+                   -> Maybe Handle  -- ^ stdin
+                   -> Maybe Handle  -- ^ stdout
+                   -> Maybe Handle  -- ^ stderr
+                   -> IO a
+                   -> IO (a, ExitCode)
+withRawSystemIOEnv verbosity path args mcwd menv inp out err action = do
     maybe (printRawCommandAndArgs       verbosity path args)
           (printRawCommandAndArgsAndEnv verbosity path args) menv
     hFlush stdout
@@ -406,10 +422,11 @@ rawSystemIOWithEnv verbosity path args mcwd menv inp out err = do
                                            , Process.std_out       = mbToStd out
                                            , Process.std_err       = mbToStd err
                                            , Process.delegate_ctlc = True }
+    a <- action
     exitcode <- waitForProcess ph
-    unless (exitcode == ExitSuccess) $ do
+    unless (exitcode == ExitSuccess) $
       debug verbosity $ path ++ " returned " ++ show exitcode
-    return exitcode
+    return (a, exitcode)
   where
     mbToStd :: Maybe Handle -> Process.StdStream
     mbToStd = maybe Process.Inherit Process.UseHandle
