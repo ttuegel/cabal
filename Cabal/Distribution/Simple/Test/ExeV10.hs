@@ -15,19 +15,18 @@ import Distribution.Simple.InstallDirs
 import qualified Distribution.Simple.LocalBuildInfo as LBI
 import Distribution.Simple.Setup ( TestFlags(..), TestShowDetails(..), fromFlag )
 import Distribution.Simple.Test.Log
-import Distribution.Simple.Utils ( die, notice, rawSystemIOWithEnv )
+import Distribution.Simple.Utils ( die, notice, withRawSystemIOEnv )
 import Distribution.TestSuite
 import Distribution.Text
 import Distribution.Verbosity ( normal )
 
-import Control.Concurrent (forkIO)
-import Control.Monad ( unless, void, when )
+import Control.Monad ( unless, when )
 import System.Directory
     ( createDirectoryIfMissing, doesDirectoryExist, doesFileExist
     , getCurrentDirectory, removeDirectoryRecursive )
 import System.Exit ( ExitCode(..) )
 import System.FilePath ( (</>), (<.>) )
-import System.IO ( hGetContents, hPutStr, stdout )
+import System.IO ( hGetChar, hIsEOF )
 
 runTest :: PD.PackageDescription
         -> LBI.LocalBuildInfo
@@ -57,17 +56,7 @@ runTest pkg_descr lbi flags suite = do
     -- Write summary notices indicating start of test suite
     notice verbosity $ summarizeSuiteStart $ PD.testName suite
 
-    (rOut, wOut) <- createPipe
-
-    -- Read test executable's output lazily (returns immediately)
-    logText <- hGetContents rOut
-    -- Force the IO manager to drain the test output pipe
-    void $ forkIO $ length logText `seq` return ()
-
-    -- '--show-details=streaming': print the log output in another thread
-    when (details == Streaming) $ void $ forkIO $ hPutStr stdout logText
-
-    -- Run the test executable
+    -- Run test executable
     let opts = map (testOption pkg_descr lbi suite)
                    (testOptions flags)
         dataDirPath = pwd </> PD.dataDir pkg_descr
@@ -75,9 +64,23 @@ runTest pkg_descr lbi flags suite = do
         shellEnv = (pkgPathEnvVar pkg_descr "datadir", dataDirPath)
                    : ("HPCTIXFILE", tixFile)
                    : existingEnv
-    exit <- rawSystemIOWithEnv verbosity cmd opts Nothing (Just shellEnv)
-                               -- these handles are automatically closed
-                               Nothing (Just wOut) (Just wOut)
+
+    (rOut, wOut) <- createPipe
+    let stream :: (Char -> IO ()) -> String -> IO String
+        stream act buf = do
+            end <- hIsEOF rOut
+            if end
+                then return $! reverse buf
+                else do
+                    c <- hGetChar rOut
+                    act c
+                    stream act $ c : buf
+        stream' | details == Streaming = stream putChar []
+                | otherwise = stream (const $ return ()) []
+
+    (logText, exit) <- withRawSystemIOEnv
+        verbosity cmd opts Nothing (Just shellEnv)
+        Nothing (Just wOut) (Just wOut) stream'
 
     -- Generate TestSuiteLog from executable exit code and a machine-
     -- readable test log.
