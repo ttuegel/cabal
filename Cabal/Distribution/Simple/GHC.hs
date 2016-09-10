@@ -285,9 +285,9 @@ getInstalledPackages :: Verbosity -> Compiler -> PackageDBStack
                      -> IO InstalledPackageIndex
 getInstalledPackages verbosity comp packagedbs progdb = do
   checkPackageDbStack comp packagedbs
-  envPackageDBs <- maybe []
-                   (map SpecificPackageDB . unintersperse searchPathSeparator)
-                   <$> lookupEnv "GHC_PACKAGE_PATH"
+  envPackageDBs <-
+    maybe [] (map SpecificPackageDB . unintersperse searchPathSeparator)
+    <$> lookupEnv "GHC_PACKAGE_PATH"
   pkgss <- getInstalledPackages' verbosity (envPackageDBs ++ packagedbs) progdb
   index <- toPackageIndex verbosity pkgss progdb
   return $! hackRtsPackage index
@@ -439,8 +439,11 @@ getInstalledPackagesMonitorFiles :: Verbosity -> Platform
                                  -> ProgramDb
                                  -> [PackageDB]
                                  -> IO [FilePath]
-getInstalledPackagesMonitorFiles verbosity platform progdb =
-    traverse getPackageDBPath
+getInstalledPackagesMonitorFiles verbosity platform progdb packageDBs = do
+  envPackageDBs <-
+    maybe [] (map SpecificPackageDB . unintersperse searchPathSeparator)
+    <$> lookupEnv "GHC_PACKAGE_PATH"
+  traverse getPackageDBPath (envPackageDBs ++ packageDBs)
   where
     getPackageDBPath :: PackageDB -> IO FilePath
     getPackageDBPath GlobalPackageDB =
