@@ -28,7 +28,7 @@ import Prelude ()
 import Distribution.Compat.Prelude
 
 import Distribution.Types.UnqualComponentName
-import Distribution.ModuleName ( main )
+import Distribution.ModuleName ( ModuleName, main )
 import Distribution.PackageDescription
     ( TestSuite(..)
     , testModules
@@ -38,7 +38,7 @@ import Distribution.Simple.Program
     ( hpcProgram
     , requireProgramVersion
     )
-import Distribution.Simple.Program.Hpc ( markup, union )
+import qualified Distribution.Simple.Program.Hpc as Hpc ( markup, union )
 import Distribution.Simple.Utils ( notice )
 import Distribution.Version ( anyVersion )
 import Distribution.Verbosity ( Verbosity() )
@@ -101,24 +101,38 @@ markupTest :: Verbosity
            -> String       -- ^ Library name
            -> TestSuite
            -> IO ()
-markupTest verbosity lbi distPref libName suite = do
-    tixFileExists <- doesFileExist $ tixFilePath distPref way $ testName'
-    when tixFileExists $ do
-        -- behaviour of 'markup' depends on version, so we need *a* version
-        -- but no particular one
-        (hpc, hpcVer, _) <- requireProgramVersion verbosity
-            hpcProgram anyVersion (withPrograms lbi)
-        let htmlDir_ = htmlDir distPref way testName'
-        markup hpc hpcVer verbosity
-            (tixFilePath distPref way testName') mixDirs
-            htmlDir_
-            (testModules suite ++ [ main ])
-        notice verbosity $ "Test coverage report written to "
-                            ++ htmlDir_ </> "hpc_index" <.> "html"
+markupTest verbosity lbi distPref libName suite =
+    markup verbosity lbi tix mix html excluded
   where
     way = guessWay lbi
     testName' = unUnqualComponentName $ testName suite
-    mixDirs = map (mixDir distPref way) [ testName', libName ]
+    tix = tixFilePath distPref way testName'
+    mix = map (mixDir distPref way) [ testName', libName ]
+    html = htmlDir distPref way testName'
+    excluded = testModules suite ++ [ main ]
+
+-- | Generate the HTML markup for a @.tix@ file.
+markup :: Verbosity
+       -> LocalBuildInfo
+       -> FilePath            -- ^ Path to .tix file
+       -> [FilePath]          -- ^ Paths to .mix file directories
+       -> FilePath            -- ^ Path where html output should be located
+       -> [ModuleName]        -- ^ List of modules to exclude from report
+       -> IO ()
+markup verbosity lbi tix mix html excluded = do
+    tixFileExists <- doesFileExist tix
+    when tixFileExists $ do
+        -- behaviour of 'markup' depends on version, so we need *a* version
+        -- but no particular one
+        (hpc, hpcVer, _) <-
+            requireProgramVersion
+            verbosity hpcProgram anyVersion (withPrograms lbi)
+        Hpc.markup
+            hpc hpcVer verbosity
+            tix mix html excluded
+        notice verbosity
+            ("Program coverage report written to "
+             ++ html </> "hpc_index" <.> "html")
 
 -- | Generate the HTML markup for all of a package's test suites.
 markupPackage :: Verbosity
@@ -139,8 +153,8 @@ markupPackage verbosity lbi distPref libName suites = do
             htmlDir' = htmlDir distPref way libName
             excluded = concatMap testModules suites ++ [ main ]
         createDirectoryIfMissing True $ takeDirectory outFile
-        union hpc verbosity tixFiles outFile excluded
-        markup hpc hpcVer verbosity outFile mixDirs htmlDir' excluded
+        Hpc.union hpc verbosity tixFiles outFile excluded
+        Hpc.markup hpc hpcVer verbosity outFile mixDirs htmlDir' excluded
         notice verbosity $ "Package coverage report written to "
                            ++ htmlDir' </> "hpc_index.html"
   where
