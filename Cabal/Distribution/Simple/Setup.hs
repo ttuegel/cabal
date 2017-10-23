@@ -1863,7 +1863,9 @@ data TestFlags = TestFlags {
     testShowDetails :: Flag TestShowDetails,
     testKeepTix     :: Flag Bool,
     -- TODO: think about if/how options are passed to test exes
-    testOptions     :: [PathTemplate]
+    testOptions     :: [PathTemplate],
+    testHpcDirs     :: NubList FilePath,
+    testDefaultHpcDirs :: Flag Bool
   } deriving (Generic)
 
 defaultTestFlags :: TestFlags
@@ -1874,7 +1876,9 @@ defaultTestFlags  = TestFlags {
     testMachineLog  = toFlag $ toPathTemplate $ "$pkgid.log",
     testShowDetails = toFlag Failures,
     testKeepTix     = toFlag False,
-    testOptions     = []
+    testOptions     = [],
+    testHpcDirs     = toNubList [],
+    testDefaultHpcDirs = toFlag True
   }
 
 testCommand :: CommandUI TestFlags
@@ -1949,6 +1953,15 @@ testCommand = CommandUI
             testOptions (\v flags -> flags { testOptions = v })
             (reqArg' "TEMPLATE" (\x -> [toPathTemplate x])
                 (map fromPathTemplate))
+      , option [] ["default-hpcdirs"]
+            ("Include default HPC directories for this package "
+             ++ "when building program coverage report")
+            testDefaultHpcDirs (\v flags -> flags { testDefaultHpcDirs = v })
+            (boolOpt' ([], ["default-hpcdirs"]) ([], ["no-default-hpcdirs"]))
+      , option [] ["hpcdir"]
+            "Include extra HPC directory when building program coverage report"
+            testHpcDirs (\v flags -> flags { testHpcDirs = v })
+            (reqArg' "DIR" (toNubList . (:[])) fromNubList)
       ]
   }
 

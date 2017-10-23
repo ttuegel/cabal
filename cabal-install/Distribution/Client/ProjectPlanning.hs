@@ -3173,6 +3173,8 @@ setupHsTestFlags _ _ verbosity builddir = Cabal.TestFlags
     , testShowDetails = toFlag Cabal.Always
     , testKeepTix     = mempty
     , testOptions     = mempty
+    , testDefaultHpcDirs = mempty
+    , testHpcDirs = toNubList []
     }
 
 setupHsTestArgs :: ElaboratedConfiguredPackage -> [String]
