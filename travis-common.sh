@@ -18,6 +18,15 @@ CABAL_INSTALL_SETUP="${CABAL_INSTALL_BDIR}/setup/setup"
 SOLVER_BENCHMARKS_BDIR="${TRAVIS_BUILD_DIR}/dist-newstyle/build/$ARCH/ghc-$GHCVER/solver-benchmarks-${CABAL_VERSION}"
 HACKAGE_REPO_TOOL_BDIR="${TRAVIS_BUILD_DIR}/dist-newstyle/build/$ARCH/ghc-$GHCVER/hackage-repo-tool-${HACKAGE_REPO_TOOL_VERSION}/c/hackage-repo-tool"
 
+if [ "$TRAVIS_OS_NAME" = "linux" ]
+then
+    case "$GHCVER" in
+        7.10.*|8.0.*|8.2.*)
+            USE_GOLD=YES
+            ;;
+    esac
+fi
+
 # ---------------------------------------------------------------------
 # Timing / diagnostic output
 # ---------------------------------------------------------------------

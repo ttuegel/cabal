@@ -17,6 +17,17 @@ branches:
     - "1.20"
     - "1.18"
 
+_os_linux: &os_linux
+  os: linux
+  sudo: required
+  before_install:
+    - ./travis-before_install-linux.sh
+
+_os_osx: &os_osx
+  os: osx
+  before_install:
+    - ./travis-before_install-osx.sh
+
 # The following enables several GHC versions to be tested; often it's enough to
 # test only against the last release in a major GHC version. Feel free to omit
 # lines listings versions you don't need/want testing for.
@@ -27,70 +38,61 @@ branches:
 matrix:
   include:
    - env: GHCVER=8.2.2 SCRIPT=meta BUILDER=none
-     os: linux
-     sudo: required
+     <<: *os_linux
    # These don't have -dyn/-prof whitelisted yet, so we have to
    # do the old-style installation
    # NB: TEST_OTHER_VERSIONS doesn't work with USE_GOLD=YES.
    - env: GHCVER=7.4.2 SCRIPT=script CABAL_LIB_ONLY=YES TEST_OTHER_VERSIONS=YES
-     os: linux
-     sudo: required
+     <<: *os_linux
    - env: GHCVER=7.6.3 SCRIPT=script CABAL_LIB_ONLY=YES TEST_OTHER_VERSIONS=YES
-     os: linux
-     sudo: required
+     <<: *os_linux
    - env: GHCVER=7.8.4 SCRIPT=script CABAL_LIB_ONLY=YES TEST_OTHER_VERSIONS=YES
-     os: linux
-     sudo: required
+     <<: *os_linux
    # Ugh, we'd like to drop 'sudo: required' and use the
    # apt plugin for the next two
    # but the GCE instance we get has more memory, which makes
    # a big difference
    - env: GHCVER=7.10.3 SCRIPT=script USE_GOLD=YES
-     os: linux
-     sudo: required
+     <<: *os_linux
    - env: GHCVER=8.0.2 SCRIPT=script DEPLOY_DOCS=YES USE_GOLD=YES TEST_SOLVER_BENCHMARKS=YES
-     sudo: required
-     os: linux
+     <<: *os_linux
 
    - env: GHCVER=8.2.2 SCRIPT=solver-debug-flags USE_GOLD=YES
-     sudo: required
-     os: linux
+     <<: *os_linux
    - env: GHCVER=8.2.2 SCRIPT=script DEBUG_EXPENSIVE_ASSERTIONS=YES TAGSUFFIX="-fdebug-expensive-assertions" USE_GOLD=YES
-     os: linux
-     sudo: required
+     <<: *os_linux
    - env: GHCVER=8.0.2 SCRIPT=bootstrap USE_GOLD=YES
-     sudo: required
-     os: linux
+     <<: *os_linux
    - env: GHCVER=8.2.2 SCRIPT=bootstrap USE_GOLD=YES
-     sudo: required
-     os: linux
+     <<: *os_linux
    - env: GHCVER=8.2.2 SCRIPT=script
-     os: linux
-     sudo: required
+     <<: *os_linux
 
    # We axed GHC 7.6 and earlier because it's not worth the trouble to
    # make older GHC work with clang's cpp.  See
    # https://ghc.haskell.org/trac/ghc/ticket/8493
    - env: GHCVER=7.8.4 SCRIPT=script CABAL_LIB_ONLY=YES
-     os: osx
+     <<: *os_osx
      # Keep this synced with travis/upload.sh
      osx_image: xcode6.4 # We need 10.10
 
    # TODO: We might want to specify OSX version
    # https://docs.travis-ci.com/user/osx-ci-environment/#OS-X-Version
    - env: GHCVER=7.10.3 SCRIPT=script
-     os: osx
+     <<: *os_osx
    - env: GHCVER=8.0.2 SCRIPT=script
-     os: osx
+     <<: *os_osx
    - env: GHCVER=8.0.2 SCRIPT=bootstrap
-     os: osx
+     <<: *os_osx
 
    - env: GHCVER=via-stack SCRIPT=stack STACKAGE_RESOLVER=lts
      os: linux
+     before_install:
+       - ./travis-before_install-stack.sh
      addons:
-        apt:
-            packages:
-                - libgmp-dev
+       apt:
+         packages:
+           - libgmp-dev
 
   allow_failures:
    - env: GHCVER=via-stack SCRIPT=stack STACKAGE_RESOLVER=lts
@@ -99,24 +101,9 @@ matrix:
  # It seems pointless to run head if we're going to ignore the results.
  #- GHCVER=head
 
-# Note: the distinction between `before_install` and `install` is not important.
-before_install:
- - export PATH=/opt/ghc/$GHCVER/bin:$PATH
- - export PATH=$HOME/.ghc-install/$GHCVER/bin:$PATH
- - export PATH=$HOME/bin:$PATH
- - export PATH=$HOME/.cabal/bin:$PATH
- - export PATH=$HOME/.local/bin:$PATH
- - export PATH=/opt/cabal/2.0/bin:$PATH
- - export PATH=/opt/happy/1.19.5/bin:$PATH
- - export PATH=/opt/alex/3.1.7/bin:$PATH
- - if [ "$USE_GOLD" = "YES" ]; then sudo update-alternatives --install "/usr/bin/ld" "ld" "/usr/bin/ld.gold" 20; fi
- - if [ "$USE_GOLD" = "YES" ]; then sudo update-alternatives --install "/usr/bin/ld" "ld" "/usr/bin/ld.bfd" 10; fi
- - ld -v
- - ./travis-install.sh
-
-install:
  # We intentionally do not install anything before trying to build Cabal because
  # it should build with each supported GHC version out-of-the-box.
+install:
 
 # Here starts the actual work to be performed for the package under test; any
 # command which exits with a non-zero exit code causes the build to fail. Using
