@@ -1,5 +1,15 @@
 set -e
 
+PATH=/opt/ghc/$GHCVER/bin:$PATH
+PATH=$HOME/.ghc-install/$GHCVER/bin:$PATH
+PATH=$HOME/bin:$PATH
+PATH=$HOME/.cabal/bin:$PATH
+PATH=$HOME/.local/bin:$PATH
+PATH=/opt/cabal/2.0/bin:$PATH
+PATH=/opt/happy/1.19.5/bin:$PATH
+PATH=/opt/alex/3.1.7/bin:$PATH
+export PATH
+
 HACKAGE_REPO_TOOL_VERSION="0.1.1"
 CABAL_VERSION="2.1.0.0"
 
