@@ -17,6 +17,9 @@ branches:
     - "1.20"
     - "1.18"
 
+    # Remove this before merging upstream
+    - travis/split-phases
+
 _os_linux: &os_linux
   os: linux
   sudo: required
