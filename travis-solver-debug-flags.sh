@@ -1,4 +1,7 @@
 #!/bin/sh
+set -ex
+
+. ./travis-common.sh
 
 # Build cabal with solver debug flags enabled.
 #
