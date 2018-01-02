@@ -39,6 +39,7 @@ matrix:
   include:
    - env: GHCVER=8.2.2 SCRIPT=meta BUILDER=none
      <<: *os_linux
+
    # These don't have -dyn/-prof whitelisted yet, so we have to
    # do the old-style installation
    # NB: TEST_OTHER_VERSIONS doesn't work with USE_GOLD=YES.
