@@ -56,18 +56,18 @@ matrix:
    # apt plugin for the next two
    # but the GCE instance we get has more memory, which makes
    # a big difference
-   - env: GHCVER=7.10.3 SCRIPT=script USE_GOLD=YES
+   - env: GHCVER=7.10.3 SCRIPT=script
      <<: *os_linux
-   - env: GHCVER=8.0.2 SCRIPT=script DEPLOY_DOCS=YES USE_GOLD=YES TEST_SOLVER_BENCHMARKS=YES
+   - env: GHCVER=8.0.2 SCRIPT=script DEPLOY_DOCS=YES TEST_SOLVER_BENCHMARKS=YES
      <<: *os_linux
 
-   - env: GHCVER=8.2.2 SCRIPT=solver-debug-flags USE_GOLD=YES
+   - env: GHCVER=8.2.2 SCRIPT=solver-debug-flags
      <<: *os_linux
-   - env: GHCVER=8.2.2 SCRIPT=script DEBUG_EXPENSIVE_ASSERTIONS=YES TAGSUFFIX="-fdebug-expensive-assertions" USE_GOLD=YES
+   - env: GHCVER=8.2.2 SCRIPT=script DEBUG_EXPENSIVE_ASSERTIONS=YES TAGSUFFIX="-fdebug-expensive-assertions"
      <<: *os_linux
-   - env: GHCVER=8.0.2 SCRIPT=bootstrap USE_GOLD=YES
+   - env: GHCVER=8.0.2 SCRIPT=bootstrap
      <<: *os_linux
-   - env: GHCVER=8.2.2 SCRIPT=bootstrap USE_GOLD=YES
+   - env: GHCVER=8.2.2 SCRIPT=bootstrap
      <<: *os_linux
    - env: GHCVER=8.2.2 SCRIPT=script
      <<: *os_linux
